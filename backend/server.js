@@ -190,8 +190,15 @@ bot.action(/^app:(approve|reject):(\d+):([a-f0-9]+)$/, async (ctx) => {
 bot.catch((error) => console.error('Telegram bot error:', error));
 
 app.post(WEBHOOK_PATH, async (req, res) => {
+  console.log('Telegram update received:', JSON.stringify({
+    update_id: req.body?.update_id,
+    message: req.body?.message?.text,
+    chat_id: req.body?.message?.chat?.id
+  }));
+
   try {
     await bot.handleUpdate(req.body);
+    console.log('Telegram update processed successfully');
     res.sendStatus(200);
   } catch (error) {
     console.error('Webhook error:', error);
