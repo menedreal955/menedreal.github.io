@@ -1,0 +1,18 @@
+{
+  "name": "instashop-telegram-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Telegram bot and API for Instagram Shops Grozny Mini App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "telegraf": "^4.16.3"
+  }
+}

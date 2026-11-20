@@ -420,7 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.target === addShopModal) closeAddModal();
     });
 
-    addShopForm.addEventListener("submit", (e) => {
+    addShopForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       triggerHaptic("medium");
 
@@ -429,8 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const instagram = document.getElementById("formInstagram").value.trim();
       const whatsapp = document.getElementById("formWhatsapp").value.trim();
       const tariff = addShopForm.querySelector('input[name="tariff"]:checked')?.value || "Базовый";
-
-      const orderText = 
+      const orderText =
         `Заявка на добавление магазина в Каталог Грозного:\n\n` +
         `🏪 Магазин: ${name}\n` +
         `📁 Категория: ${category}\n` +
@@ -438,25 +437,55 @@ document.addEventListener("DOMContentLoaded", () => {
         `📱 WhatsApp: ${whatsapp}\n` +
         `💎 Тариф: ${tariff}`;
 
-      // Прямая ссылка в личные сообщения администратора @Menedreal
+      // В Telegram Mini App заявка отправляется на backend.
+      // Backend проверяет подпись initData и пересылает заявку администратору.
+      if (tg?.initData) {
+        const apiBase = (window.INSTASHOP_API_URL || "").replace(/\/$/, "");
+        if (!apiBase || apiBase.includes("YOUR-BACKEND")) {
+          const message = "Backend ещё не настроен. Укажите адрес Render в config.js.";
+          if (tg.showAlert) tg.showAlert(message); else alert(message);
+          return;
+        }
+
+        const submitButton = addShopForm.querySelector('button[type="submit"]');
+        const originalText = submitButton?.textContent;
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = "Отправляем заявку…";
+        }
+
+        try {
+          const response = await fetch(`${apiBase}/api/applications`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              initData: tg.initData,
+              name, category, instagram, whatsapp, tariff
+            })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result.ok) throw new Error(result.error || "Не удалось отправить заявку.");
+
+          const successMessage = "Заявка отправлена! Администратор получил её и скоро свяжется с вами.";
+          if (tg.showAlert) tg.showAlert(successMessage); else alert(successMessage);
+          closeAddModal();
+          addShopForm.reset();
+        } catch (error) {
+          const errorMessage = error.message || "Ошибка соединения с сервером. Попробуйте позже.";
+          if (tg.showAlert) tg.showAlert(errorMessage); else alert(errorMessage);
+        } finally {
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalText || "Отправить заявку в Telegram";
+          }
+        }
+        return;
+      }
+
+      // В обычном браузере сохраняем прежний сценарий: открываем чат администратора.
       const targetUrl = `https://t.me/Menedreal?text=${encodeURIComponent(orderText)}`;
-
-      // Копируем текст заявки в буфер обмена для удобства
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(orderText).catch(() => {});
-      }
-
-      // Отправка в боте или открытие диалога с @Menedreal
-      if (tg?.sendData) {
-        tg.sendData(orderText);
-      }
-
-      if (tg?.openTelegramLink) {
-        tg.openTelegramLink(targetUrl);
-      } else {
-        window.open(targetUrl, "_blank");
-      }
-
+      if (navigator.clipboard) navigator.clipboard.writeText(orderText).catch(() => {});
+      window.open(targetUrl, "_blank");
       closeAddModal();
       addShopForm.reset();
     });
