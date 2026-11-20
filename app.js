@@ -1,5 +1,14 @@
 // Главный скрипт каталога Instagram-магазинов г. Грозный
 document.addEventListener("DOMContentLoaded", () => {
+  // Яндекс Метрика: отправляем только события интерфейса, без Telegram ID,
+  // телефонов, текста поиска и других персональных/введённых пользователем данных.
+  const METRIKA_ID = 114414261;
+  function trackGoal(goal, params = {}) {
+    if (typeof window.ym === "function") {
+      window.ym(METRIKA_ID, "reachGoal", goal, params);
+    }
+  }
+
   // Инициализация Telegram WebApp SDK
   const tg = window.Telegram?.WebApp;
   if (tg) {
@@ -77,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.addEventListener("click", () => {
         const catId = btn.dataset.category;
         state.selectedCategory = catId;
+        trackGoal("category_filter", { category: catId });
         triggerHaptic("light");
         renderCategories();
         applyFilters();
@@ -101,6 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     districtSelect.addEventListener("change", (e) => {
       state.selectedDistrict = e.target.value;
+      trackGoal("district_filter", { district: state.selectedDistrict });
       triggerHaptic("light");
       applyFilters();
     });
@@ -219,6 +230,18 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .join("");
 
+    // Цели: переходы в Instagram и WhatsApp из карточек магазинов.
+    shopsContainer.querySelectorAll(".shop-card").forEach((card) => {
+      const shopId = Number(card.dataset.shopId);
+      const shop = shops.find((item) => item.id === shopId);
+      card.querySelector(".btn-instagram")?.addEventListener("click", () => {
+        trackGoal("instagram_click", { shop_id: String(shopId), shop_name: shop?.name || "" });
+      });
+      card.querySelector(".btn-whatsapp")?.addEventListener("click", () => {
+        trackGoal("whatsapp_click", { shop_id: String(shopId), shop_name: shop?.name || "" });
+      });
+    });
+
     // Обработка загрузки аватаров (каскад: avatars/{ig}.jpg -> shop.avatar -> фирменный Instagram-аватар)
     shopsContainer.querySelectorAll(".shop-avatar").forEach((img) => {
       img.addEventListener("error", () => {
@@ -305,6 +328,12 @@ document.addEventListener("DOMContentLoaded", () => {
     applyFilters();
   });
 
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && searchInput.value.trim()) {
+      trackGoal("search_used");
+    }
+  });
+
   clearSearchBtn.addEventListener("click", () => {
     searchInput.value = "";
     state.searchQuery = "";
@@ -315,6 +344,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 6. Модальное окно деталей магазина
   function openShopModal(shop) {
+    trackGoal("shop_open", {
+      shop_id: String(shop.id),
+      shop_name: shop.name || "",
+      category: shop.categoryName || ""
+    });
     triggerHaptic("medium");
     const avatarUrl = getShopAvatar(shop);
 
@@ -339,6 +373,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const igClean = shop.instagram.replace(/^@/, "");
     modalBtnInstagram.href = `https://instagram.com/${igClean}`;
+    modalBtnInstagram.dataset.shopId = String(shop.id);
+    modalBtnInstagram.dataset.shopName = shop.name || "";
     modalBtnInstagram.innerHTML = `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
       Открыть @${igClean} в Instagram
@@ -349,9 +385,13 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `Здравствуйте! Пишу вам из Каталога Грозного по промокоду "${shop.promoCode}". Хочу оформить заказ.`
       : "Здравствуйте! Нашел ваш магазин в каталоге Грозного.";
     modalBtnWhatsapp.href = `https://wa.me/${waNum}?text=${encodeURIComponent(waModalText)}`;
+    modalBtnWhatsapp.dataset.shopId = String(shop.id);
+    modalBtnWhatsapp.dataset.shopName = shop.name || "";
 
     const gisSearchQuery = encodeURIComponent(`${shop.name} Грозный`);
     modalBtnGis.href = shop.gisUrl || `https://2gis.ru/grozny/search/${gisSearchQuery}`;
+    modalBtnGis.dataset.shopId = String(shop.id);
+    modalBtnGis.dataset.shopName = shop.name || "";
 
     shopModal.classList.add("active");
     document.body.style.overflow = "hidden";
@@ -361,6 +401,25 @@ document.addEventListener("DOMContentLoaded", () => {
     shopModal.classList.remove("active");
     document.body.style.overflow = "";
   }
+
+  modalBtnInstagram.addEventListener("click", () => {
+    trackGoal("instagram_click", {
+      shop_id: modalBtnInstagram.dataset.shopId || "",
+      shop_name: modalBtnInstagram.dataset.shopName || ""
+    });
+  });
+  modalBtnWhatsapp.addEventListener("click", () => {
+    trackGoal("whatsapp_click", {
+      shop_id: modalBtnWhatsapp.dataset.shopId || "",
+      shop_name: modalBtnWhatsapp.dataset.shopName || ""
+    });
+  });
+  modalBtnGis.addEventListener("click", () => {
+    trackGoal("map_click", {
+      shop_id: modalBtnGis.dataset.shopId || "",
+      shop_name: modalBtnGis.dataset.shopName || ""
+    });
+  });
 
   modalCloseBtn.addEventListener("click", closeShopModal);
   shopModal.addEventListener("click", (e) => {
@@ -404,6 +463,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!addShopOpenBtn || !addShopModal) return;
 
     function openAddModal() {
+      trackGoal("add_shop_open");
       triggerHaptic("light");
       addShopModal.classList.add("active");
       document.body.style.overflow = "hidden";
@@ -466,6 +526,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const result = await response.json().catch(() => ({}));
           if (!response.ok || !result.ok) throw new Error(result.error || "Не удалось отправить заявку.");
 
+          trackGoal("application_submitted", { tariff: tariff });
           const successMessage = "Заявка отправлена! Администратор получил её и скоро свяжется с вами.";
           if (tg.showAlert) tg.showAlert(successMessage); else alert(successMessage);
           closeAddModal();
